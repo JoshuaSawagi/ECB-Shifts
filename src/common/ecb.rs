@@ -57,7 +57,7 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     *FIGHTER_STATUS_KIND_CAPTURE_CUT,
     *FIGHTER_STATUS_KIND_THROWN,
     ].contains(&prev_status);
-    
+
     let fighter_low_offset = [
     *FIGHTER_KIND_KIRBY,
     *FIGHTER_KIND_PIKACHU,
@@ -115,7 +115,6 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     *FIGHTER_KIND_GAOGAEN,
     *FIGHTER_KIND_TANTAN];
 
-    
     let fighter_max_offset = 
     [*FIGHTER_KIND_DONKEY,
     *FIGHTER_KIND_LINK,
@@ -167,12 +166,10 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     } else {
         3.0 // fallback
     };
-
     // Skip states that should use vanilla ECB
     if vanilla_ecb || previous_states {
         return;
     }
-
     // Reset offset during ENTRY or early PASS (e.g. platform drop or training reset)
     let prev_status = StatusModule::prev_status_kind(module_accessor, 0);
     let motion_frame = MotionModule::frame(module_accessor);
