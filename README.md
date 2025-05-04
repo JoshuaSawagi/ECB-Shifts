@@ -1,4 +1,4 @@
-# ECB
+# ECB Shifts
 
 An Open-source ECB-shift.
 Don't try to compile and use from this source code.
