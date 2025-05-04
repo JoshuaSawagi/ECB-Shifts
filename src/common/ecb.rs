@@ -1,21 +1,16 @@
 use smash::lib::lua_const::*;
 use smash::phx::Vector2f;
 use smashline::Main;
-use crate::common::L2CFighterCommon_sys_line_system_control_fighter;
-use smash::app::sv_battle_object::module_accessor;
 use smash::app::sv_system;
 use std::convert::TryInto;
-use crate::common::StatusModule::status_kind;
 use smash::phx::*;
-use bitflags::bitflags;
-use modular_bitfield::specifiers::*;
-use crate::controls::consts::globals::*;
+use crate::utils::is_ready_go;
 use smashline::Agent;
 use smash::app::{self, lua_bind::*, utility, BattleObjectModuleAccessor};
 use smash::lua2cpp::L2CFighterCommon;
-use crate::controls::ext::BomaExt;
 use smash::hash40;
 use smash::app::GroundCorrectKind;
+use smashline::L2CValue;
 
 unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     let module_accessor = fighter.module_accessor;
@@ -23,6 +18,12 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     let prev_status = StatusModule::prev_status_kind(module_accessor, 0);
     let situation = StatusModule::situation_kind(module_accessor);
     let kind = app::utility::get_kind(&mut *module_accessor);
+
+    // Skip logic if game is not ready (e.g. during training reset)
+    if !is_ready_go() {
+        GroundModule::get_offset_y(module_accessor);
+        return;
+    }
 
     // Get fighter index (0-7)
     let entry_id = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
@@ -93,7 +94,8 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     *FIGHTER_KIND_MIIFIGHTER,
     *FIGHTER_KIND_MIISWORDSMAN,
     *FIGHTER_KIND_MIIGUNNER,
-    *FIGHTER_KIND_BUDDY];
+    *FIGHTER_KIND_BUDDY,
+    *FIGHTER_KIND_PICKEL];
 
     let fighter_high_offset = 
     [*FIGHTER_KIND_FOX,
@@ -108,7 +110,8 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     *FIGHTER_KIND_WOLF,
     *FIGHTER_KIND_LITTLEMAC,
     *FIGHTER_KIND_KROOL,
-    *FIGHTER_KIND_GAOGAEN];
+    *FIGHTER_KIND_GAOGAEN,
+    *FIGHTER_KIND_TANTAN];
 
     
     let fighter_max_offset = 
@@ -143,7 +146,13 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     *FIGHTER_KIND_SIMON,
     *FIGHTER_KIND_RICHTER,
     *FIGHTER_KIND_JACK,
-    *FIGHTER_KIND_BRAVE];
+    *FIGHTER_KIND_BRAVE,
+    *FIGHTER_KIND_EDGE,
+    *FIGHTER_KIND_MASTER,
+    *FIGHTER_KIND_EFLAME,
+    *FIGHTER_KIND_ELIGHT,
+    *FIGHTER_KIND_DEMON,
+    *FIGHTER_KIND_TRAIL];
 
     let offset_y = if fighter_low_offset.contains(&kind) {
         2.0
@@ -162,43 +171,54 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
         return;
     }
 
+    // Reset offset during ENTRY or early PASS (e.g. platform drop or training reset)
+    let prev_status = StatusModule::prev_status_kind(module_accessor, 0);
+    let motion_frame = MotionModule::frame(module_accessor);
 
-    // Skip entry and platform drop-through
     if status == *FIGHTER_STATUS_KIND_ENTRY
-        || (StatusModule::prev_status_kind(module_accessor, 0) == *FIGHTER_STATUS_KIND_PASS
-            && MotionModule::frame(module_accessor) < 3.0)
+        || (prev_status == *FIGHTER_STATUS_KIND_PASS && motion_frame < 3.0)
     {
+        GroundModule::set_offset_y(module_accessor, 0.0);
+        GroundModule::set_rhombus_offset(module_accessor, &Vector2f { x: 0.0, y: 0.0 });
         return;
     }
 
     // Check if fighter just entered the air
-    let air_trans = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_FRAME_IN_AIR) < 10;
+    let air_trans = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_FRAME_IN_AIR) < 1;
 
-    
-
-    // Set offset in air
+    // Only apply ECB logic for valid airborne movement states
     let valid_air_states = [
-    *FIGHTER_STATUS_KIND_JUMP,
-    *FIGHTER_STATUS_KIND_JUMP_AERIAL,
-    *FIGHTER_STATUS_KIND_FALL,
-    *FIGHTER_STATUS_KIND_FALL_AERIAL,
-    *FIGHTER_STATUS_KIND_FALL_SPECIAL,];
+        *FIGHTER_STATUS_KIND_JUMP,
+        *FIGHTER_STATUS_KIND_JUMP_AERIAL,
+        *FIGHTER_STATUS_KIND_FALL,
+        *FIGHTER_STATUS_KIND_FALL_AERIAL,
+        *FIGHTER_STATUS_KIND_FALL_SPECIAL,
+    ];
 
     if situation == *SITUATION_KIND_AIR
-    && valid_air_states.contains(&status)
-    && !(vanilla_ecb || previous_states)  {
+        && valid_air_states.contains(&status)
+        && !(vanilla_ecb || previous_states)
+        && motion_frame > 5.0 // avoid applying offset too early during transition
+    {
         GroundModule::set_offset_y(module_accessor, offset_y);
-        if vanilla_ecb || air_trans
-        { GroundModule::set_rhombus_offset(module_accessor, &Vector2f { x: 0.0, y: 0.0 }); }
+
+        if air_trans {
+            GroundModule::set_rhombus_offset(module_accessor, &Vector2f { x: 0.0, y: 0.0 });
+        }
+
         GroundModule::correct(module_accessor, GroundCorrectKind(*GROUND_CORRECT_KIND_AIR));
     }
     // Reset offset on ground
     else if situation == *SITUATION_KIND_GROUND {
         GroundModule::set_offset_y(module_accessor, 0.0);
-        if vanilla_ecb
-        { GroundModule::set_rhombus_offset(module_accessor, &Vector2f { x: 0.0, y: 0.0 }); }
+
+        if vanilla_ecb {
+            GroundModule::set_rhombus_offset(module_accessor, &Vector2f { x: 0.0, y: 0.0 });
+        }
     }
 }
+
+
 
 pub fn install() {
     Agent::new("fighter")
