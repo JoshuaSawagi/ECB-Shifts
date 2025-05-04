@@ -21,13 +21,13 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     let situation = StatusModule::situation_kind(module_accessor);
     let kind = app::utility::get_kind(&mut *module_accessor);
 
-    // Skip logic if game is not ready (e.g. during training reset)
+    // for reset during training reset
     if !is_ready_go() {
         GroundModule::get_offset_y(module_accessor);
         return;
     }
 
-    // Get fighter index (0-7)
+    // Get fighter index
     let entry_id = WorkModule::get_int(module_accessor, *FIGHTER_INSTANCE_WORK_ID_INT_ENTRY_ID) as usize;
 
     // Vanilla state filter
