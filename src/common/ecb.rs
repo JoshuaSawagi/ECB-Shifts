@@ -12,6 +12,8 @@ use smash::hash40;
 use smash::app::GroundCorrectKind;
 use smashline::L2CValue;
 
+/*Credit to Nyxtheshield and Black-calculus*/
+
 unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
     let module_accessor = fighter.module_accessor;
     let status = StatusModule::status_kind(module_accessor);
@@ -217,8 +219,6 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
         }
     }
 }
-
-
 
 pub fn install() {
     Agent::new("fighter")
