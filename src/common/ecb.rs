@@ -208,13 +208,6 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
             && !(vanilla_ecb || previous_states)
             && motion_frame > 2.0
         {
-            let mut final_offset = offset_y;
-
-            // Wavelanding ECB tweak: reduce ECB height for EscapeAir
-            if status == *FIGHTER_STATUS_KIND_ESCAPE_AIR {
-                final_offset -= 0.2;
-            }
-
             GroundModule::set_offset_y(module_accessor, final_offset);
 
             if air_trans {
@@ -232,6 +225,61 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
         }
     }
 }
+
+/*Deadass a extention for Ecb-shifts related to Waveland*/
+
+//Normal Edition
+unsafe fn waveland_check(fighter: &mut L2CFighterCommon) {
+    let boma = fighter.module_accessor;
+
+    if StatusModule::status_kind(boma) != *FIGHTER_STATUS_KIND_ESCAPE_AIR
+    || StatusModule::situation_kind(boma) != *SITUATION_KIND_AIR {
+        return;
+    }
+
+    // Only moving downward can land on a floor this frame
+    let speed_x = KineticModule::get_sum_speed_x(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
+    let speed_y = KineticModule::get_sum_speed_y(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
+    if speed_y >= 0.0 {return;}
+
+    let pos = Vector2f { x: PostureModule::pos_x(boma), y: PostureModule::pos_y(boma) };
+    let ray = Vector2f { x: speed_x, y: speed_y };
+    let mut hit_pos = Vector2f { x: 0.0, y: 0.0 };
+
+    if GroundModule::ray_check_hit_pos(boma, &pos, &ray, &mut hit_pos, true) {
+        // Snap onto the surface, then enter the landing status now instead of next frame
+        PostureModule::set_pos_2d(boma, &hit_pos);
+        StatusModule::set_situation_kind(boma, app::SituationKind(*SITUATION_KIND_GROUND), true);
+        GroundModule::attach_ground(boma, false);
+        // Change status to land
+        fighter.change_status(FIGHTER_STATUS_KIND_LANDING.into(), false.into());
+		//Potentially not needed
+        /*KineticModule::get_sum_speed_x(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN)
+        KineticModule::get_sum_speed_y(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN)*/
+    }
+}
+//HDR-Enviorment edition
+//unsafe fn waveland_check(boma: &mut BattleObjectModuleAccessor) {
+//    if !boma.is_status(*FIGHTER_STATUS_KIND_ESCAPE_AIR)
+//    || !boma.is_situation(*SITUATION_KIND_AIR) {
+//        return;
+//    }
+//    let speed_x = KineticModule::get_sum_speed_x(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
+//    let speed_y = KineticModule::get_sum_speed_y(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
+//    if speed_y >= 0.0 { return; }
+
+//    let pos = Vector2f { x: PostureModule::pos_x(boma), y: PostureModule::pos_y(boma) };
+//    let ray = Vector2f { x: speed_x, y: speed_y };
+//    let mut hit_pos = Vector2f { x: 0.0, y: 0.0 };
+
+//    if GroundModule::ray_check_hit_pos(boma, &pos, &ray, &mut hit_pos, true) {
+//        PostureModule::set_pos_2d(boma, &hit_pos);
+//        StatusModule::set_situation_kind(boma, app::SituationKind(*SITUATION_KIND_GROUND), true);
+//        GroundModule::attach_ground(boma, false);
+//        StatusModule::change_status_request_from_script(boma, *FIGHTER_STATUS_KIND_LANDING, false);
+//    }
+//}
+
 
 #[skyline::hook(replace=get_ground_correct_kind_air_trans)]
 unsafe extern "C" fn get_ground_correct_kind_air_trans_hook(_boma: &mut smash::app::BattleObjectModuleAccessor, _something: i32) -> i32 {
