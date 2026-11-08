@@ -228,6 +228,8 @@ unsafe extern "C" fn ecb(fighter: &mut L2CFighterCommon) {
 
 /*Deadass a extention for Ecb-shifts related to Waveland*/
 
+/* Note from Sawagi. There is a 2-frame physics delay when your trying to waveland/wavedash in ultimate for whatever reason.
+This is the patch that fixes that physics delay.*/
 //Normal Edition
 unsafe fn waveland_check(fighter: &mut L2CFighterCommon) {
     let boma = fighter.module_accessor;
@@ -237,7 +239,7 @@ unsafe fn waveland_check(fighter: &mut L2CFighterCommon) {
         return;
     }
 
-    // Only moving downward can land on a floor this frame
+    // Only moving downward can land on a floor this frame...I think
     let speed_x = KineticModule::get_sum_speed_x(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
     let speed_y = KineticModule::get_sum_speed_y(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_ALL);
     if speed_y >= 0.0 {return;}
@@ -258,6 +260,7 @@ unsafe fn waveland_check(fighter: &mut L2CFighterCommon) {
         KineticModule::get_sum_speed_y(boma, *KINETIC_ENERGY_RESERVE_ATTRIBUTE_MAIN)*/
     }
 }
+
 //HDR-Enviorment edition
 //unsafe fn waveland_check(boma: &mut BattleObjectModuleAccessor) {
 //    if !boma.is_status(*FIGHTER_STATUS_KIND_ESCAPE_AIR)
